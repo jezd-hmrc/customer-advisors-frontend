@@ -17,8 +17,7 @@
 package uk.gov.hmrc.contactadvisors
 
 import javax.inject.{Inject, Singleton}
-import play.api.Play.{configuration, current}
-import play.api.{Configuration, Environment}
+import play.api.{Configuration, Environment, Mode}
 import uk.gov.hmrc.play.config.ServicesConfig
 
 trait AppConfig {
@@ -29,15 +28,16 @@ trait AppConfig {
 }
 
 @Singleton
-class FrontendAppConfig @Inject()(
-                                   override val runModeConfiguration: Configuration, val environment: Environment) extends AppConfig with ServicesConfig {
+class FrontendAppConfig @Inject()(val runModeConfiguration: Configuration,
+                                  val environment: Environment) extends AppConfig with ServicesConfig {
 
-  override protected def mode = environment.mode
+  override protected def mode: Mode.Mode = environment.mode
 
-  private def loadConfig(key: String) = configuration.getString(key).getOrElse(throw new Exception(s"Missing configuration key: $key"))
+  private def loadConfig(key: String): String = runModeConfiguration.getString(key)
+    .getOrElse(throw new Exception(s"Missing configuration key: $key"))
 
-  override lazy val analyticsToken = loadConfig(s"google-analytics.token")
-  override lazy val analyticsHost = loadConfig(s"google-analytics.host")
+  override lazy val analyticsToken: String= loadConfig(s"google-analytics.token")
+  override lazy val analyticsHost: String = loadConfig(s"google-analytics.host")
   override val reportAProblemPartialUrl: String = "unused"
   override val reportAProblemNonJSUrl: String = "unused"
 }
