@@ -1,9 +1,13 @@
-
 # customer-advisors-frontend
 
 [![Build Status](https://travis-ci.org/hmrc/customer-advisors-frontend.svg?branch=master)](https://travis-ci.org/hmrc/customer-advisors-frontend) [ ![Download](https://api.bintray.com/packages/hmrc/releases/customer-advisors-frontend/images/download.svg) ](https://bintray.com/hmrc/releases/customer-advisors-frontend/_latestVersion)
 
-A frontend used by contact advisors to respond to messages. 
+A frontend used by contact advisors to respond to messages.
+
+## /secure-message/hmrc/email - email proxy endpoint
+
+By default proxy is available for all stride users with supported clientId.
+
 
 #### License
 
