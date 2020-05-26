@@ -18,7 +18,7 @@ package uk.gov.hmrc.contactadvisors.service
 
 import com.google.inject.AbstractModule
 import net.codingwell.scalaguice.ScalaModule
-import org.mockito.Matchers._
+import org.mockito.Matchers.{ eq => is, _ }
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfter
@@ -29,7 +29,7 @@ import org.scalatestplus.play.guice.GuiceOneAppPerSuite
 import play.api.Application
 import play.api.http.Status
 import play.api.inject.guice.GuiceApplicationBuilder
-import play.api.libs.json.Json
+import play.api.libs.json.{ JsObject, Json }
 import play.api.mvc.Results
 import play.api.test.Helpers._
 import uk.gov.hmrc.contactadvisors.connectors.EmailConnector
@@ -42,8 +42,9 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
   implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   val mockEmailConnector: EmailConnector = mock[EmailConnector]
-  val validClientId = "ba6219ed-d6be-48e1-8612-ed5e793274f7"
+  val validClientId = "ba6219ed-d6be-48e1-8612-ed5e793274ff"
   val invalidClientId = "invalid-client-id"
+  val testClientName = "testClientName"
 
   implicit lazy override val app: Application = new GuiceApplicationBuilder()
     .overrides(new AbstractModule with ScalaModule {
@@ -51,7 +52,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
         bind[EmailConnector].toInstance(mockEmailConnector)
     })
     .configure("metrics.enabled" -> "false")
-    .configure("email.clientIds" -> List(validClientId))
+    .configure(s"email.clientId.$testClientName" -> s"$validClientId")
     .build()
   val emailService = app.injector.instanceOf[EmailService]
 
@@ -61,11 +62,11 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
 
   "doSendEmail" should {
 
-    "forward emailConnector's result on valid payload" in new TestCase {
+    "forward emailConnector's result on valid payload and add clientName to it" in new TestCase {
       when(mockEmailConnector.send(any())(any())).thenReturn(Future.successful(Results.Accepted))
       val result = emailService.doSendEmail(validPayload)
       result.futureValue mustBe (Results.Accepted)
-      verify(mockEmailConnector, times(1)).send(any())(any())
+      verify(mockEmailConnector, times(1)).send(is(validPayload ++ Json.obj("clientName" -> testClientName)))(any())
     }
 
     "return BadRequest on payload with extra parameters" in new TestCase {
@@ -114,7 +115,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                      |  },
                                      |  "clientId": "$validClientId"
                                      |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
 
     val extraParameters = Json.parse(s"""
                                         |{
@@ -126,7 +127,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                         |  },
                                         |  "clientId": "$validClientId"
                                         |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
 
     val emptyParameters = Json.parse(s"""
                                         |{
@@ -136,7 +137,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                         |  },
                                         |  "clientId": "$validClientId"
                                         |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
 
     val missingParameters = Json.parse(s"""
                                           |{
@@ -144,7 +145,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                           |  "templateId": "seiss_claim_now",
                                           |  "clientId": "$validClientId"
                                           |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
   }
 
   val invalidClientIdPayload = Json.parse(s"""
@@ -156,7 +157,7 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                              |  },
                                              |  "clientId": "$invalidClientId"
                                              |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
 
   val missingClientIdPayload = Json.parse(s"""
                                              |{
@@ -166,6 +167,6 @@ class EmailServiceSpec extends PlaySpec with MockitoSugar with ScalaFutures with
                                              |        "name": "Mr Joe Bloggs"
                                              |  }
                                              |}
-        """.stripMargin)
+        """.stripMargin).as[JsObject]
 
 }
