@@ -22,7 +22,6 @@ import play.api.libs.json.JsValue
 import play.api.mvc._
 import uk.gov.hmrc.auth.core.AuthProvider.PrivilegedApplication
 import uk.gov.hmrc.auth.core._
-import uk.gov.hmrc.auth.core.authorise.Predicate
 import uk.gov.hmrc.contactadvisors.service.EmailService
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.HeaderCarrierConverter
@@ -36,20 +35,15 @@ class EmailController @Inject()(
   controllerComponents: MessagesControllerComponents,
   val authConnector: AuthConnector,
   val emailService: EmailService,
-  val conf: Configuration,
   val env: Environment)(implicit val appConfig: uk.gov.hmrc.contactadvisors.FrontendAppConfig)
     extends FrontendController(controllerComponents) with AuthorisedFunctions {
-
-  lazy val predicates: Option[Predicate] =
-    conf
-      .getOptional[Seq[String]](s"email.stride.roles")
-      .map(_.distinct)
-      .collect { case x :: xs => xs.foldLeft[Predicate](Enrolment(x))((b, a) => b or Enrolment(a)) }
 
   def sendEmail: Action[AnyContent] = Action.async { implicit request =>
     {
       implicit val hc: HeaderCarrier = HeaderCarrierConverter.fromHeadersAndSession(request.headers)
-      authorised(predicates.foldLeft[Predicate](AuthProviders(PrivilegedApplication))((b, a) => b and a)) {
+      //authorised(Enrolment("roleOne") and AuthProviders(PrivilegedApplication))
+
+      authorised(AuthProviders(PrivilegedApplication)) {
         request.body.asJson.fold(Future.successful(BadRequest("""{"error": "invalid payload"}""")))((json: JsValue) => emailService.doSendEmail(json))
       }.recover {
         case _: NoActiveSession             => Unauthorized("not authenticated")
