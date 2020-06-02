@@ -18,7 +18,7 @@ package uk.gov.hmrc.contactadvisors.service
 
 import javax.inject.{ Inject, Singleton }
 import play.api.Configuration
-import play.api.libs.json.{ JsObject, JsString, JsValue, Json }
+import play.api.libs.json.{ JsObject, JsString, JsValue }
 import play.api.mvc.Result
 import play.api.mvc.Results.{ BadRequest, Forbidden }
 import uk.gov.hmrc.contactadvisors.connectors.EmailConnector
@@ -29,15 +29,17 @@ import scala.concurrent.{ ExecutionContext, Future }
 class EmailService @Inject()(emailConnector: EmailConnector, conf: Configuration) {
 
   lazy val clientIds = conf
-    .getOptional[Map[String, String]](s"email.clientId")
-    .getOrElse(Map())
+    .getOptional[Seq[String]](s"email.clientIds")
+    .getOrElse(List())
+    .toSet
 
-  def doSendEmail(payload: JsObject)(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Result] =
+  def doSendEmail(payload: JsValue)(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Result] =
     if (!validParameters(payload)) {
       Future.successful(BadRequest("""{"error": "invalid parameters"}"""))
+    } else if (!validClientId(payload)) {
+      Future.successful(Forbidden("""{"error": "invalid clientId"}"""))
     } else {
-      getClientName(payload).fold(Future.successful(Forbidden("""{"error": "invalid clientId"}""")))(name =>
-        emailConnector.send(payload ++ Json.obj("clientName" -> s"$name")))
+      emailConnector.send(payload)
     }
 
   private def validParameters(payload: JsValue): Boolean =
@@ -47,9 +49,11 @@ class EmailService @Inject()(emailConnector: EmailConnector, conf: Configuration
       }
       .getOrElse(false)
 
-  private def getClientName(payload: JsValue): Option[String] =
-    (payload \ "clientId").toOption.collect {
-      case x: JsString => clientIds.collectFirst { case (key, value) if value == x.value => key }
-    }.flatten
+  private def validClientId(payload: JsValue): Boolean =
+    (payload \ "clientId").toOption
+      .collect {
+        case x: JsString if clientIds.contains(x.value) => true
+      }
+      .getOrElse(false)
 
 }

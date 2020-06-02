@@ -18,7 +18,7 @@ package uk.gov.hmrc.contactadvisors.controllers
 
 import javax.inject.{ Inject, Singleton }
 import play.api._
-import play.api.libs.json.JsObject
+import play.api.libs.json.JsValue
 import play.api.mvc._
 import uk.gov.hmrc.auth.core.AuthProvider.PrivilegedApplication
 import uk.gov.hmrc.auth.core._
@@ -50,9 +50,7 @@ class EmailController @Inject()(
     {
       implicit val hc: HeaderCarrier = HeaderCarrierConverter.fromHeadersAndSession(request.headers)
       authorised(predicates.foldLeft[Predicate](AuthProviders(PrivilegedApplication))((b, a) => b and a)) {
-        request.body.asJson
-          .flatMap(_.asOpt[JsObject])
-          .fold(Future.successful(BadRequest("""{"error": "invalid payload"}""")))((jsobj: JsObject) => emailService.doSendEmail(jsobj))
+        request.body.asJson.fold(Future.successful(BadRequest("""{"error": "invalid payload"}""")))((json: JsValue) => emailService.doSendEmail(json))
       }.recover {
         case _: NoActiveSession             => Unauthorized("not authenticated")
         case _: InsufficientEnrolments      => Forbidden("not authorised")
